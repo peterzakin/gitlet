@@ -1,20 +1,31 @@
 import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
 
 export async function getRepoInfo({
-  bucket,
+  bucket = process.env.GIT_S3_BUCKET,
   repo,
-  region,
+  region = process.env.GIT_S3_REGION ?? "us-east-1",
+  endpoint = process.env.GIT_R2_ENDPOINT,
+  publicUrl = process.env.GIT_R2_PUBLIC_URL,
 }: {
-  bucket: string;
+  bucket?: string;
   repo: string;
   region?: string;
+  endpoint?: string;
+  publicUrl?: string;
 }): Promise<{
   exists: boolean;
   cloneUrl: string;
   sizeBytes: number;
   lastModified: Date;
 } | null> {
-  const client = new S3Client({ region: region ?? process.env.GIT_S3_REGION ?? "us-east-1" });
+  if (!bucket) throw new Error("bucket is required (pass it or set GIT_S3_BUCKET)");
+  const client = new S3Client({
+    region: endpoint ? "auto" : region,
+    ...(endpoint && {
+      endpoint,
+      forcePathStyle: true,
+    }),
+  });
   const prefix = `${repo}.git/`;
 
   let totalSize = 0;
@@ -47,9 +58,20 @@ export async function getRepoInfo({
 
   if (objectCount === 0) return null;
 
+  let cloneUrl: string;
+  if (publicUrl) {
+    const base = publicUrl.replace(/\/+$/, "");
+    cloneUrl = `${base}/${repo}.git`;
+  } else if (endpoint) {
+    const base = endpoint.replace(/\/+$/, "");
+    cloneUrl = `${base}/${bucket}/${repo}.git`;
+  } else {
+    cloneUrl = `https://${bucket}.s3.amazonaws.com/${repo}.git`;
+  }
+
   return {
     exists: true,
-    cloneUrl: `https://${bucket}.s3.amazonaws.com/${repo}.git`,
+    cloneUrl,
     sizeBytes: totalSize,
     lastModified: maxLastModified!,
   };

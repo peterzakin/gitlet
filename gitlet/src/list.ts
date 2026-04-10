@@ -1,15 +1,13 @@
 import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
 
-function getClient(): S3Client {
-  return new S3Client({ region: process.env.GIT_S3_REGION ?? "us-east-1" });
-}
-
 export async function listRepos({
   bucket,
+  region,
 }: {
   bucket: string;
+  region?: string;
 }): Promise<string[]> {
-  const client = getClient();
+  const client = new S3Client({ region: region ?? process.env.GIT_S3_REGION ?? "us-east-1" });
 
   const result = await client.send(
     new ListObjectsV2Command({

@@ -12,8 +12,8 @@ import {
 
 const execFileAsync = promisify(execFile);
 
-function getClient(): S3Client {
-  return new S3Client({ region: process.env.GIT_S3_REGION ?? "us-east-1" });
+function resolveRegion(region?: string): string {
+  return region ?? process.env.GIT_S3_REGION ?? "us-east-1";
 }
 
 async function runGit(
@@ -45,10 +45,12 @@ export async function publishRepo({
   bucket,
   repoPath,
   repo,
+  region,
 }: {
   bucket: string;
   repoPath: string;
   repo: string;
+  region?: string;
 }): Promise<{ cloneUrl: string }> {
   const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "gitlet-"));
   const bareDir = path.join(tmpDir, "repo.git");
@@ -64,7 +66,7 @@ export async function publishRepo({
     await runGit(["update-server-info"], bareDir);
 
     // 5. Sync to S3
-    const client = getClient();
+    const client = new S3Client({ region: resolveRegion(region) });
     const prefix = `${repo}.git/`;
 
     // Collect all local files with their relative paths

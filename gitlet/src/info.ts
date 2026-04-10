@@ -1,22 +1,20 @@
 import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
 
-function getClient(): S3Client {
-  return new S3Client({ region: process.env.GIT_S3_REGION ?? "us-east-1" });
-}
-
 export async function getRepoInfo({
   bucket,
   repo,
+  region,
 }: {
   bucket: string;
   repo: string;
+  region?: string;
 }): Promise<{
   exists: boolean;
   cloneUrl: string;
   sizeBytes: number;
   lastModified: Date;
 } | null> {
-  const client = getClient();
+  const client = new S3Client({ region: region ?? process.env.GIT_S3_REGION ?? "us-east-1" });
   const prefix = `${repo}.git/`;
 
   let totalSize = 0;

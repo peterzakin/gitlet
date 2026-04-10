@@ -9,7 +9,7 @@ import * as crypto from "node:crypto";
 import {
   setupBucket,
   destroyBucket,
-  publishRepo,
+  publishToS3,
   deleteRepo,
   listRepos,
   getRepoInfo,
@@ -67,7 +67,7 @@ describe("gitlet roundtrip", { timeout: 120_000 }, () => {
     await git(["add", "."], repoDir);
     await git(["commit", "-m", "add second file"], repoDir);
 
-    const result = await publishRepo({
+    const result = await publishToS3({
       bucket: TEST_BUCKET,
       repoPath: repoDir,
       repo: REPO_NAME,
@@ -127,7 +127,7 @@ describe("gitlet roundtrip", { timeout: 120_000 }, () => {
     await git(["commit", "-m", "add third file"], srcDir);
 
     // Re-publish
-    await publishRepo({
+    await publishToS3({
       bucket: TEST_BUCKET,
       repoPath: srcDir,
       repo: REPO_NAME,

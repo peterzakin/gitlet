@@ -12,10 +12,6 @@ import {
 
 const execFileAsync = promisify(execFile);
 
-function resolveRegion(region?: string): string {
-  return region ?? process.env.GIT_S3_REGION ?? "us-east-1";
-}
-
 async function runGit(
   args: string[],
   cwd: string
@@ -41,16 +37,64 @@ async function walkDir(dir: string): Promise<string[]> {
   return results;
 }
 
-export async function publishRepo({
-  bucket,
+export async function publishToS3({
+  bucket = process.env.GIT_S3_BUCKET,
   repoPath,
   repo,
-  region,
+  region = process.env.GIT_S3_REGION ?? "us-east-1",
 }: {
-  bucket: string;
+  bucket?: string;
   repoPath: string;
   repo: string;
   region?: string;
+}): Promise<{ cloneUrl: string }> {
+  if (!bucket) throw new Error("bucket is required (pass it or set GIT_S3_BUCKET)");
+  const client = new S3Client({ region });
+  const cloneUrl = `https://${bucket}.s3.amazonaws.com/${repo}.git`;
+  return syncRepo({ client, bucket, repoPath, repo, cloneUrl });
+}
+
+export async function publishToR2({
+  bucket = process.env.GIT_R2_BUCKET ?? process.env.GIT_S3_BUCKET,
+  repoPath,
+  repo,
+  endpoint = process.env.GIT_R2_ENDPOINT,
+  publicUrl = process.env.GIT_R2_PUBLIC_URL,
+}: {
+  bucket?: string;
+  repoPath: string;
+  repo: string;
+  /** R2 S3-compatible endpoint, e.g. https://<account-id>.r2.cloudflarestorage.com */
+  endpoint?: string;
+  /** Public URL base for clone URLs, e.g. https://repos.example.com or https://<bucket>.<account-id>.r2.dev */
+  publicUrl?: string;
+}): Promise<{ cloneUrl: string }> {
+  if (!bucket) throw new Error("bucket is required (pass it or set GIT_R2_BUCKET)");
+  if (!endpoint) throw new Error("endpoint is required (pass it or set GIT_R2_ENDPOINT)");
+  const client = new S3Client({
+    region: "auto",
+    endpoint,
+    forcePathStyle: true,
+  });
+  const base = publicUrl
+    ? publicUrl.replace(/\/+$/, "")
+    : `${endpoint.replace(/\/+$/, "")}/${bucket}`;
+  const cloneUrl = `${base}/${repo}.git`;
+  return syncRepo({ client, bucket, repoPath, repo, cloneUrl });
+}
+
+async function syncRepo({
+  client,
+  bucket,
+  repoPath,
+  repo,
+  cloneUrl,
+}: {
+  client: S3Client;
+  bucket: string;
+  repoPath: string;
+  repo: string;
+  cloneUrl: string;
 }): Promise<{ cloneUrl: string }> {
   const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "gitlet-"));
   const bareDir = path.join(tmpDir, "repo.git");
@@ -65,8 +109,7 @@ export async function publishRepo({
     // 4. Generate dumb HTTP index files
     await runGit(["update-server-info"], bareDir);
 
-    // 5. Sync to S3
-    const client = new S3Client({ region: resolveRegion(region) });
+    // 5. Sync to bucket
     const prefix = `${repo}.git/`;
 
     // Collect all local files with their relative paths
@@ -153,7 +196,7 @@ export async function publishRepo({
       }
     }
 
-    return { cloneUrl: `https://${bucket}.s3.amazonaws.com/${repo}.git` };
+    return { cloneUrl };
   } finally {
     // 6. Clean up temp directory
     await fs.promises.rm(tmpDir, { recursive: true, force: true });

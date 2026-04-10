@@ -1,13 +1,22 @@
 import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
 
 export async function listRepos({
-  bucket,
-  region,
+  bucket = process.env.GIT_S3_BUCKET,
+  region = process.env.GIT_S3_REGION ?? "us-east-1",
+  endpoint = process.env.GIT_R2_ENDPOINT,
 }: {
-  bucket: string;
+  bucket?: string;
   region?: string;
-}): Promise<string[]> {
-  const client = new S3Client({ region: region ?? process.env.GIT_S3_REGION ?? "us-east-1" });
+  endpoint?: string;
+} = {}): Promise<string[]> {
+  if (!bucket) throw new Error("bucket is required (pass it or set GIT_S3_BUCKET)");
+  const client = new S3Client({
+    region: endpoint ? "auto" : region,
+    ...(endpoint && {
+      endpoint,
+      forcePathStyle: true,
+    }),
+  });
 
   const result = await client.send(
     new ListObjectsV2Command({

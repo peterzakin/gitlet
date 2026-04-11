@@ -1,5 +1,4 @@
 import {
-  S3Client,
   CreateBucketCommand,
   PutPublicAccessBlockCommand,
   PutBucketPolicyCommand,
@@ -11,10 +10,7 @@ import {
   type ObjectIdentifier,
   type BucketLocationConstraint,
 } from "@aws-sdk/client-s3";
-
-function getClient(region?: string): S3Client {
-  return new S3Client({ region: region ?? process.env.GIT_S3_REGION ?? "us-east-1" });
-}
+import { createS3Client, resolveRegion } from "./client.js";
 
 export async function setupBucket({
   bucket,
@@ -23,8 +19,8 @@ export async function setupBucket({
   bucket: string;
   region?: string;
 }): Promise<{ bucket: string; region: string }> {
-  const resolvedRegion = region ?? process.env.GIT_S3_REGION ?? "us-east-1";
-  const client = getClient(resolvedRegion);
+  const resolvedRegion = resolveRegion(region);
+  const client = createS3Client(resolvedRegion);
 
   // 1. Create bucket (idempotent)
   try {
@@ -114,7 +110,7 @@ export async function destroyBucket({
 }: {
   bucket: string;
 }): Promise<void> {
-  const client = getClient();
+  const client = createS3Client();
 
   // List and delete all object versions (including delete markers)
   try {

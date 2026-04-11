@@ -4,17 +4,13 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import {
-  S3Client,
   PutObjectCommand,
   ListObjectsV2Command,
   DeleteObjectsCommand,
 } from "@aws-sdk/client-s3";
+import { createS3Client } from "./client.js";
 
 const execFileAsync = promisify(execFile);
-
-function resolveRegion(region?: string): string {
-  return region ?? process.env.GIT_S3_REGION ?? "us-east-1";
-}
 
 async function runGit(
   args: string[],
@@ -66,7 +62,7 @@ export async function publishRepo({
     await runGit(["update-server-info"], bareDir);
 
     // 5. Sync to S3
-    const client = new S3Client({ region: resolveRegion(region) });
+    const client = createS3Client(region);
     const prefix = `${repo}.git/`;
 
     // Collect all local files with their relative paths

@@ -1,8 +1,8 @@
 import {
-  S3Client,
   ListObjectsV2Command,
   DeleteObjectsCommand,
 } from "@aws-sdk/client-s3";
+import { createS3Client } from "./client.js";
 
 export async function deleteRepo({
   bucket,
@@ -13,7 +13,7 @@ export async function deleteRepo({
   repo: string;
   region?: string;
 }): Promise<void> {
-  const client = new S3Client({ region: region ?? process.env.GIT_S3_REGION ?? "us-east-1" });
+  const client = createS3Client(region);
   const prefix = `${repo}.git/`;
 
   let continuationToken: string | undefined;

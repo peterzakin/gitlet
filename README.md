@@ -8,11 +8,6 @@ Publish git repositories to S3 as static files so anyone can `git clone` them ov
 npm install gitlet
 ```
 
-## Prerequisites
-
-- `git` installed on your system
-- AWS credentials configured (env vars, IAM role, etc.)
-
 ## Usage
 
 ```typescript
